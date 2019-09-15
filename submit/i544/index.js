@@ -1,5 +1,5 @@
 #!/usr/bin/env nodejs
-//use strict';
+
 'use strict';
 
 const assert = require('assert');

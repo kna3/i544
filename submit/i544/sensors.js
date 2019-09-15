@@ -77,7 +77,7 @@ class Sensors {
      *
      *  All user errors must be thrown as an array of objects.
      */
-     //async
+
     async findSensorTypes(info) {
         const searchSpecs = validate('findSensorTypes', info);
         this.index = searchSpecs.index;

@@ -7,7 +7,8 @@ class Sensors {
         this.sensorTypeMap = new Map();
         this.sensorsMap = new Map();
         this.sensorDataMap = new Map();
-        this.index = 0;
+        this.sensorTypeIndex = 0;
+        this.sensorIndex = 0;
     }
 
 
@@ -36,7 +37,6 @@ class Sensors {
     async addSensor(info) {
         const sensor = validate('addSensor', info);
         this.sensorsMap.set(sensor.id, sensor);
-
     }
 
     /** Subject to field validation as per FN_INFOS.addSensorData, add
@@ -77,22 +77,49 @@ class Sensors {
      *
      *  All user errors must be thrown as an array of objects.
      */
-
     async findSensorTypes(info) {
         const searchSpecs = validate('findSensorTypes', info);
-        this.index = searchSpecs.index;
-        let count = 0;
-        let result = {};
-        let iterator = this.sensorTypeMap.values();
-        let sensorTypes = [];
-        while(count < DEFAULT_COUNT) {
-            sensorTypes.push(iterator.next().value);
-            count++;
-            this.index++;
+        if (searchSpecs.id != null){
+            if (this.sensorTypeMap.has(searchSpecs.id)) {
+                return this.sensorTypeMap.get(searchSpecs.id);
+            } else {
+                let error = [];
+                let errorMsg = `Sensor Type ID ${searchSpecs.id} not found/invalid`;
+                error.push(errorMsg);
+                return error;
+            }
+        } else {
+            let count = searchSpecs.count || DEFAULT_COUNT;
+            let result = {};
+            let tempArray = Array.from(this.sensorTypeMap.values());
+
+            if (searchSpecs.quantity != null) {
+                tempArray = tempArray.filter(sensorType => sensorType.quantity === searchSpecs.quantity);
+            }
+            if (searchSpecs.manufacturer != null){
+                tempArray = tempArray.filter(sensorType => sensorType.manufacturer === searchSpecs.manufacturer);
+            }
+            if (searchSpecs.modelNumber != null) {
+                tempArray = tempArray.filter(sensorType => sensorType.modelNumber === searchSpecs.modelNumber);
+            }
+            if (searchSpecs.unit != null) {
+                tempArray = tempArray.filter(sensorType => sensorType.unit === searchSpecs.unit);
+            }
+
+            let tempCount = 0;
+            let sensorTypes = [];
+            this.sensorTypeIndex = searchSpecs.index || 0;
+            for (let i = this.sensorTypeIndex; tempCount < count && i < tempArray.length; i++) {
+                sensorTypes.push(tempArray[i]);
+                tempCount++;
+                this.sensorTypeIndex++;
+            }
+            sensorTypes.sort(compare);
+            result.nextIndex = this.sensorTypeIndex;
+            result.data = sensorTypes;
+            return result;
         }
-        result.nextIndex = this.index;
-        result.data = sensorTypes;
-        return result;
+
     }
 
     /** Subject to validation of search-parameters in info as per
@@ -122,9 +149,52 @@ class Sensors {
      */
     async findSensors(info) {
         const searchSpecs = validate('findSensors', info);
-        //@TODO
-        return {};
+        if (searchSpecs.id != null) {
+            if (this.sensorsMap.has(searchSpecs.id)) {
+                return this.sensorsMap.get(searchSpecs.id);
+            } else {
+                let error = [];
+                let errorMsg = `Sensor ID ${searchSpecs.id} not found/invalid`;
+                error.push(errorMsg);
+                return error;
+            }
+        } else {
+            let count = searchSpecs.count || DEFAULT_COUNT;
+            let result = {};
+            let tempArray = Array.from(this.sensorsMap.values());
+
+            if (searchSpecs.model != null) {
+                tempArray = tempArray.filter(sensorType => sensorType.model === searchSpecs.model);
+            }
+            if (searchSpecs.period != null) {
+                tempArray = tempArray.filter(sensorType => sensorType.period === searchSpecs.period);
+            }
+
+            let doDetail = false;
+            if (searchSpecs.doDetail != null && searchSpecs.doDetail === "true") {
+                doDetail = true;
+            }
+            let tempCount = 0;
+            this.sensorIndex = searchSpecs.index || 0;
+            let sensors = [];
+            for (let i = this.sensorIndex; tempCount < count && i < tempArray.length; i++) {
+                if(doDetail) {
+                    let copyTempArr = Object.assign({},tempArray[i]);
+                    copyTempArr.sensorType = this.sensorTypeMap.get(tempArray[i].model);
+                    tempArray[i] = copyTempArr;
+                }
+                sensors.push(tempArray[i]);
+                tempCount++;
+                this.sensorIndex++;
+            }
+            sensors.sort(compare);
+            result.nextIndex = this.sensorIndex;
+            result.data = sensors;
+
+            return result;
+        }
     }
+
 
     /** Subject to validation of search-parameters in info as per
      *  FN_INFOS.findSensorData, return all sensor reading which satisfy
@@ -382,3 +452,16 @@ const FN_INFOS = {
         max: { type: 'number' },
     },
 };
+
+function compare(a, b) {
+    const idA = a.id.toUpperCase();
+    const idB = b.id.toUpperCase();
+
+    let comparison = 0;
+    if (idA > idB) {
+        comparison = 1;
+    } else if (idA < idB) {
+        comparison = -1;
+    }
+    return comparison;
+}

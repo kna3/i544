@@ -48,6 +48,17 @@ class Sensors {
      */
     async addSensorData(info) {
         const sensorData = validate('addSensorData', info);
+        let range = {};
+        let limits = {};
+        let status = '';
+        if (this.sensorsMap.has(sensorData.sensorId)) {
+            if (this.sensorTypeMap.has(this.sensorsMap.get(sensorData.sensorId).model)) {
+                range = this.sensorsMap.get(sensorData.sensorId).expected;
+                limits = this.sensorTypeMap.get(this.sensorsMap.get(sensorData.sensorId).model).limits;
+                status = inRange(sensorData.value, range, limits);
+                sensorData.status = status;
+            }
+        }
         if (!this.sensorDataMap.has(sensorData.sensorId)) {
             this.sensorDataMap.set(sensorData.sensorId, new Array());
             this.sensorDataMap.get(sensorData.sensorId).push(sensorData);
@@ -233,10 +244,24 @@ class Sensors {
      */
     async findSensorData(info) {
         const searchSpecs = validate('findSensorData', info);
-        return {};
+
+        if (searchSpecs.sensorId != null) {
+            if (this.sensorDataMap.has(searchSpecs.sensorId)) {
+                let count = searchSpecs.count || DEFAULT_COUNT;
+                let sensorData = Array.from(this.sensorDataMap.get(searchSpecs.sensorId));
+                let dataToSend = [];
+                let result = {};
+
+                for(let i = 0; i < count; i++){
+                    let tempSensorData = Object.assign({}, sensorData[i]);
+                    delete tempSensorData.sensorId;
+                    dataToSend.push(tempSensorData);
+                }
+                result.data = dataToSend;
+                return result;
+            }
+        }
     }
-
-
 }
 
 module.exports = Sensors;
@@ -464,4 +489,15 @@ function compare(a, b) {
         comparison = -1;
     }
     return comparison;
+}
+
+function inRange(value, range, limits) {
+    if (value <= limits.min || value >= limits.max) {
+        return "error";
+    }
+    if (value >= range.min && value <= range.max) {
+        return "ok";
+    } else {
+        return "outOfRange"
+    }
 }

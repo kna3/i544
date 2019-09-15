@@ -252,6 +252,10 @@ class Sensors {
                 let sensorData = Array.from(this.sensorDataMap.get(searchSpecs.sensorId));
                 let dataToSend = [];
                 let result = {};
+		if (searchSpecs.statuses != null) {
+                    let statuses = searchSpecs.statuses;
+                    sensorData = sensorData.filter(sd => statuses.has(sd.status));
+                }
 
                 for(let i = 0; i < count; i++){
                     let tempSensorData = Object.assign({}, sensorData[i]);

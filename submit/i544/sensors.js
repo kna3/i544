@@ -97,7 +97,7 @@ class Sensors {
                 let error = [];
                 let errorMsg = `Sensor Type ID ${searchSpecs.id} not found/invalid`;
                 error.push(errorMsg);
-                return error;
+                throw error;
             }
         } else {
             let count = searchSpecs.count || DEFAULT_COUNT;
@@ -167,7 +167,7 @@ class Sensors {
                 let error = [];
                 let errorMsg = `Sensor ID ${searchSpecs.id} not found/invalid`;
                 error.push(errorMsg);
-                return error;
+                throw error;
             }
         } else {
             let count = searchSpecs.count || DEFAULT_COUNT;
@@ -248,6 +248,7 @@ class Sensors {
         if (searchSpecs.sensorId != null) {
             if (this.sensorDataMap.has(searchSpecs.sensorId)) {
                 let count = searchSpecs.count || DEFAULT_COUNT;
+                let doDetail = searchSpecs.doDetail || false;
                 let sensorData = Array.from(this.sensorDataMap.get(searchSpecs.sensorId));
                 let dataToSend = [];
                 let result = {};
@@ -258,7 +259,18 @@ class Sensors {
                     dataToSend.push(tempSensorData);
                 }
                 result.data = dataToSend;
+                if(doDetail) {
+                    let sensorInfo = this.sensorsMap.get(searchSpecs.sensorId);
+                    result.sensorType = this.sensorTypeMap.get(sensorInfo.model);
+                    result.sensor = sensorInfo;
+
+                }
                 return result;
+            } else {
+                let error = [];
+                let errorMsg = `Sensor-Data ID ${searchSpecs.id} not found/invalid`;
+                error.push(errorMsg);
+                throw error;
             }
         }
     }

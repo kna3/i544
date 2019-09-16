@@ -7,14 +7,14 @@ class Sensors {
         this.sensorTypeMap = new Map();
         this.sensorsMap = new Map();
         this.sensorDataMap = new Map();
-        this.sensorTypeIndex = 0;
-        this.sensorIndex = 0;
     }
 
 
     /** Clear out all data from this object. */
     async clear() {
-        //@TODO
+        this.sensorTypeMap.clear();
+        this.sensorsMap.clear();
+        this.sensorDataMap.clear();
     }
 
     /** Subject to field validation as per FN_INFOS.addSensorType,
@@ -48,9 +48,11 @@ class Sensors {
      */
     async addSensorData(info) {
         const sensorData = validate('addSensorData', info);
+
         let range = {};
         let limits = {};
         let status = '';
+
         if (this.sensorsMap.has(sensorData.sensorId)) {
             if (this.sensorTypeMap.has(this.sensorsMap.get(sensorData.sensorId).model)) {
                 range = this.sensorsMap.get(sensorData.sensorId).expected;
@@ -59,12 +61,14 @@ class Sensors {
                 sensorData.status = status;
             }
         }
+
         if (!this.sensorDataMap.has(sensorData.sensorId)) {
             this.sensorDataMap.set(sensorData.sensorId, new Array());
             this.sensorDataMap.get(sensorData.sensorId).push(sensorData);
         } else {
             this.sensorDataMap.get(sensorData.sensorId).push(sensorData);
         }
+
     }
 
     /** Subject to validation of search-parameters in info as per
@@ -90,6 +94,7 @@ class Sensors {
      */
     async findSensorTypes(info) {
         const searchSpecs = validate('findSensorTypes', info);
+
         if (searchSpecs.id != null){
             if (this.sensorTypeMap.has(searchSpecs.id)) {
                 return this.sensorTypeMap.get(searchSpecs.id);
@@ -99,35 +104,48 @@ class Sensors {
                 error.push(errorMsg);
                 throw error;
             }
+
         } else {
+            let sortedSensorTypeMap = sortMap(this.sensorTypeMap);
             let count = searchSpecs.count || DEFAULT_COUNT;
             let result = {};
-            let tempArray = Array.from(this.sensorTypeMap.values());
+            let dataToSend = Array.from(sortedSensorTypeMap.values());
 
             if (searchSpecs.quantity != null) {
-                tempArray = tempArray.filter(sensorType => sensorType.quantity === searchSpecs.quantity);
+                dataToSend = dataToSend.filter(sensorType => sensorType.quantity === searchSpecs.quantity);
             }
             if (searchSpecs.manufacturer != null){
-                tempArray = tempArray.filter(sensorType => sensorType.manufacturer === searchSpecs.manufacturer);
+                dataToSend = dataToSend.filter(sensorType => sensorType.manufacturer === searchSpecs.manufacturer);
             }
             if (searchSpecs.modelNumber != null) {
-                tempArray = tempArray.filter(sensorType => sensorType.modelNumber === searchSpecs.modelNumber);
+                dataToSend = dataToSend.filter(sensorType => sensorType.modelNumber === searchSpecs.modelNumber);
             }
             if (searchSpecs.unit != null) {
-                tempArray = tempArray.filter(sensorType => sensorType.unit === searchSpecs.unit);
+                dataToSend = dataToSend.filter(sensorType => sensorType.unit === searchSpecs.unit);
             }
 
-            let tempCount = 0;
             let sensorTypes = [];
-            this.sensorTypeIndex = searchSpecs.index || 0;
-            for (let i = this.sensorTypeIndex; tempCount < count && i < tempArray.length; i++) {
-                sensorTypes.push(tempArray[i]);
+            let index = 0;
+            let tempCount = 0;
+            // this.sensorTypeIndex = searchSpecs.index || 0;
+
+            dataToSend.sort(compareIds);
+            dataToSend = dataToSend.filter(sType => sType.index >= searchSpecs.index);
+
+            for (let i = 0; tempCount < count && i < dataToSend.length; i++) {
+                let tempSensorType = Object.assign({},dataToSend[i]);
+                index = tempSensorType.index;
+                delete tempSensorType.index;
                 tempCount++;
-                this.sensorTypeIndex++;
+                sensorTypes.push(tempSensorType);
             }
-            sensorTypes.sort(compare);
-            result.nextIndex = this.sensorTypeIndex;
+            if(sensorTypes.length === dataToSend.length){
+                result.nextIndex = -1;
+            }else{
+                result.nextIndex = index+1;
+            }
             result.data = sensorTypes;
+
             return result;
         }
 
@@ -160,7 +178,9 @@ class Sensors {
      */
     async findSensors(info) {
         const searchSpecs = validate('findSensors', info);
+
         if (searchSpecs.id != null) {
+
             if (this.sensorsMap.has(searchSpecs.id)) {
                 return this.sensorsMap.get(searchSpecs.id);
             } else {
@@ -169,37 +189,53 @@ class Sensors {
                 error.push(errorMsg);
                 throw error;
             }
+
         } else {
+            let sortedSensorMap = sortMap(this.sensorsMap);
             let count = searchSpecs.count || DEFAULT_COUNT;
             let result = {};
-            let tempArray = Array.from(this.sensorsMap.values());
+            let dataToSend = Array.from(sortedSensorMap.values());
 
             if (searchSpecs.model != null) {
-                tempArray = tempArray.filter(sensorType => sensorType.model === searchSpecs.model);
+                dataToSend = dataToSend.filter(sensorType => sensorType.model === searchSpecs.model);
             }
             if (searchSpecs.period != null) {
-                tempArray = tempArray.filter(sensorType => sensorType.period === searchSpecs.period);
+                dataToSend = dataToSend.filter(sensorType => sensorType.period === searchSpecs.period);
             }
 
             let doDetail = false;
+
             if (searchSpecs.doDetail != null && searchSpecs.doDetail === "true") {
                 doDetail = true;
             }
+
             let tempCount = 0;
-            this.sensorIndex = searchSpecs.index || 0;
+
+            dataToSend.sort(compareIds);
+
+            //this.sensorIndex = searchSpecs.index || 0;
             let sensors = [];
-            for (let i = this.sensorIndex; tempCount < count && i < tempArray.length; i++) {
+            let index = 0;
+            dataToSend = dataToSend.filter(sType => sType.index >= searchSpecs.index);
+
+
+            for (let i = 0; tempCount < count && i < dataToSend.length; i++) {
+                let tempSensor = Object.assign({}, dataToSend[i]);
+                index = tempSensor.index;
+                delete tempSensor.index;
                 if(doDetail) {
-                    let copyTempArr = Object.assign({},tempArray[i]);
-                    copyTempArr.sensorType = this.sensorTypeMap.get(tempArray[i].model);
-                    tempArray[i] = copyTempArr;
+                    tempSensor.sensorType = this.sensorTypeMap.get(dataToSend[i].model);
                 }
-                sensors.push(tempArray[i]);
+                dataToSend[i] = tempSensor;
+                sensors.push(dataToSend[i]);
                 tempCount++;
-                this.sensorIndex++;
             }
-            sensors.sort(compare);
-            result.nextIndex = this.sensorIndex;
+
+            if(sensors.length === dataToSend.length){
+                result.nextIndex = -1;
+            }else{
+                result.nextIndex = index+1;
+            }
             result.data = sensors;
 
             return result;
@@ -252,7 +288,6 @@ class Sensors {
                 let sensorData = Array.from(this.sensorDataMap.get(searchSpecs.sensorId));
                 let dataToSend = [];
                 let result = {};
-
                 if (searchSpecs.timestamp != null) {
                     if (searchSpecs.timestamp > 0){
                         sensorData.sort(timeStampSort);
@@ -261,7 +296,6 @@ class Sensors {
                         result.data = [];
                         return result;
                     }
-
                 }
 
                 if (searchSpecs.statuses != null) {
@@ -277,10 +311,13 @@ class Sensors {
                 result.data = dataToSend;
 
                 if(doDetail) {
-                    let sensorInfo = this.sensorsMap.get(searchSpecs.sensorId);
-                    result.sensorType = this.sensorTypeMap.get(sensorInfo.model);
-                    result.sensor = sensorInfo;
 
+                    let sensorInfo = Object.assign({},this.sensorsMap.get(searchSpecs.sensorId));
+                    delete sensorInfo.index;
+                    let sensorType = Object.assign({},this.sensorTypeMap.get(sensorInfo.model));
+                    delete sensorType.index;
+                    result.sensorType = sensorType;
+                    result.sensor = sensorInfo;
                 }
                 return result;
             } else {
@@ -507,7 +544,7 @@ const FN_INFOS = {
     },
 };
 
-function compare(a, b) {
+function compareIds(a, b) {
     const idA = a.id.toUpperCase();
     const idB = b.id.toUpperCase();
 
@@ -542,4 +579,13 @@ function timeStampSort(a, b) {
         comparison = 1;
     }
     return comparison;
+}
+
+function sortMap(mapToSort) {
+    let newMap = new Map([...mapToSort.entries()].sort());
+    let index = 0;
+    newMap.forEach((value, key, map) => {
+        value.index = index++;
+    });
+    return newMap;
 }

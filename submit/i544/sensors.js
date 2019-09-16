@@ -95,7 +95,7 @@ class Sensors {
                 return this.sensorTypeMap.get(searchSpecs.id);
             } else {
                 let error = [];
-                let errorMsg = `Sensor Type ID ${searchSpecs.id} not found/invalid`;
+                let errorMsg = `cannot find sensor-type for id=${searchSpecs.id}`;
                 error.push(errorMsg);
                 throw error;
             }
@@ -165,7 +165,7 @@ class Sensors {
                 return this.sensorsMap.get(searchSpecs.id);
             } else {
                 let error = [];
-                let errorMsg = `Sensor ID ${searchSpecs.id} not found/invalid`;
+                let errorMsg = `cannot find sensor for id=${searchSpecs.id}`;
                 error.push(errorMsg);
                 throw error;
             }
@@ -252,7 +252,19 @@ class Sensors {
                 let sensorData = Array.from(this.sensorDataMap.get(searchSpecs.sensorId));
                 let dataToSend = [];
                 let result = {};
-		if (searchSpecs.statuses != null) {
+
+                if (searchSpecs.timestamp != null) {
+                    if (searchSpecs.timestamp > 0){
+                        sensorData.sort(timeStampSort);
+                        sensorData = sensorData.filter(sd => sd.timestamp <= searchSpecs.timestamp);
+                    } else {
+                        result.data = [];
+                        return result;
+                    }
+
+                }
+
+                if (searchSpecs.statuses != null) {
                     let statuses = searchSpecs.statuses;
                     sensorData = sensorData.filter(sd => statuses.has(sd.status));
                 }
@@ -263,6 +275,7 @@ class Sensors {
                     dataToSend.push(tempSensorData);
                 }
                 result.data = dataToSend;
+
                 if(doDetail) {
                     let sensorInfo = this.sensorsMap.get(searchSpecs.sensorId);
                     result.sensorType = this.sensorTypeMap.get(sensorInfo.model);
@@ -272,7 +285,7 @@ class Sensors {
                 return result;
             } else {
                 let error = [];
-                let errorMsg = `Sensor-Data ID ${searchSpecs.id} not found/invalid`;
+                let errorMsg = `unknown sensor id "${searchSpecs.sensorId}"`;
                 error.push(errorMsg);
                 throw error;
             }
@@ -516,4 +529,17 @@ function inRange(value, range, limits) {
     } else {
         return "outOfRange"
     }
+}
+
+function timeStampSort(a, b) {
+    const timestampA = a.timestamp;
+    const timestampB = b.timestamp;
+
+    let comparison = 0;
+    if (timestampA > timestampB) {
+        comparison = -1;
+    } else if (timestampA < timestampB) {
+        comparison = 1;
+    }
+    return comparison;
 }

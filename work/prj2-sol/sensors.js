@@ -53,7 +53,7 @@ class Sensors {
      */
     async addSensorType(info) {
         const sensorType = validate('addSensorType', info);
-        await this.senorTypeCol.updateOne({_id: sensorType.id}, {$set: {data: sensorType}}, {upsert: true});
+        await this.senorTypeCol.replaceOne({"id":sensorType.id},sensorType, {upsert: true});
     }
 
     /** Subject to field validation as per validate('addSensor', info)
@@ -65,7 +65,7 @@ class Sensors {
      */
     async addSensor(info) {
         const sensor = validate('addSensor', info);
-        await this.sensorCol.updateOne({_id: sensor.id}, {$set: {data: sensor}}, {upsert: true});
+        await this.sensorCol.replaceOne({"id": sensor.id}, sensor, {upsert: true});
     }
 
     /** Subject to field validation as per validate('addSensorData',
@@ -78,7 +78,7 @@ class Sensors {
      */
     async addSensorData(info) {
         const sensorData = validate('addSensorData', info);
-        await this.sensorDataCol.updateOne({_id: sensorData.sensorId}, {$set: {data: sensorData}}, {upsert: true});
+        await this.sensorDataCol.replaceOne({"id": sensorData.sensorId}, sensorData, {upsert: true});
         //@TODO
     }
 
@@ -107,7 +107,19 @@ class Sensors {
     async findSensorTypes(info) {
         //@TODO
         const searchSpecs = validate('findSensorTypes', info);
-        return { data: [], nextIndex: -1 };
+
+        let result = {};
+
+        if (searchSpecs.id !== null) {
+           let queryResult = await _getFindOneResult(this.senorTypeCol, searchSpecs);
+            let data = [];
+            data.push(queryResult);
+            result.data = data;
+            result.nextIndex = -1;
+        } else {
+            result.data = await _getFindManyResults(this.senorTypeCol, searchSpecs);
+        }
+        return result;
     }
 
     /** Subject to validation of search-parameters in info as per
@@ -138,7 +150,26 @@ class Sensors {
     async findSensors(info) {
         //@TODO
         const searchSpecs = validate('findSensors', info);
-        return { data: [], nextIndex: -1 };
+
+        let result = {};
+        let queryResult = [];
+
+        if (searchSpecs.id !== null) {
+            queryResult = await _getFindOneResult(this.sensorCol, searchSpecs);
+            result.nextIndex = -1;
+        } else {
+            queryResult = await _getFindManyResults(this.sensorCol, searchSpecs);
+        }
+        if (searchSpecs._doDetail) {
+            for (let i = 0; i < queryResult.length; i++) {
+                let model = queryResult[i].model;
+                queryResult[i].sensorType = await _getFindOneResult(this.senorTypeCol, {id: model});
+            }
+        }
+        let data = [];
+        data.push(queryResult);
+        result.data = data;
+        return result;
     }
 
     /** Subject to validation of search-parameters in info as per
@@ -189,6 +220,26 @@ class Sensors {
 } //class Sensors
 
 module.exports = Sensors.newSensors;
+
+async function _getFindOneResult(collection, searchSpecs) {
+    let queryResult = await collection.findOne({id: searchSpecs.id});
+    delete queryResult._id;
+    return queryResult;
+}
+
+
+
+async function _getFindManyResults(collection, searchSpecs) {
+    let filters = {};
+    for (let filter in searchSpecs) {
+        if (filter !== "id" && filter !== "_count" && filter !== "_index" && filter !== "_doDetail") {
+            filters[filter] = searchSpecs[filter];
+        }
+    }
+    let queryResult = await collection.find(filters).sort({"id":1}).skip(searchSpecs._index).limit(searchSpecs._count).toArray();
+    queryResult.map((curr) => delete curr._id);
+    return queryResult;
+}
 
 //Options for creating a mongo client
 const MONGO_OPTIONS = {

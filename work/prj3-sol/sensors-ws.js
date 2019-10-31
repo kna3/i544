@@ -45,26 +45,11 @@ function setupRoutes(app) {
 
                     results = await app.locals.model.findSensorTypes(q);
                     let data = results.data;
-                    if (url.includes('?')) {
-                        url = url.slice(0, url.indexOf('?'));
-                    }
+                    url = getBaseUrl(url);
                     data.map((curr) => {
                         curr.self = url + '/' + curr.id;
                     });
-
-                    if (results.nextIndex > 0) {
-                        results.next = url + '?_index=' + results.nextIndex;
-                        if (q._count > 0) {
-                            results.next += '&_count=' + q._count;
-                        }
-                    }
-                    if (results.previousIndex > 0) {
-                        results.previous = url + '?_index=' + results.previousIndex;
-                        if (q._count > 0) {
-                            results.previous += '&_count=' + q._count;
-                        }
-                    }
-                    res.json(results);
+                    getNextAndPreviousIndex(q, url, results);
                 }
                 results.self = url;
                 res.json(results);
@@ -123,4 +108,26 @@ function mapError(err) {
 function requestUrl(req) {
     const port = req.app.locals.port;
     return `${req.protocol}://${req.hostname}:${port}${req.originalUrl}`;
+}
+
+function getNextAndPreviousIndex(q, url, results) {
+    if (results.nextIndex > 0) {
+        results.next = url + '?_index=' + results.nextIndex;
+        if (q._count > 0) {
+            results.next += '&_count=' + q._count;
+        }
+    }
+    if (results.previousIndex > 0) {
+        results.previous = url + '?_index=' + results.previousIndex;
+        if (q._count > 0) {
+            results.previous += '&_count=' + q._count;
+        }
+    }
+}
+
+function getBaseUrl(url) {
+    if (url.includes('?')) {
+        url = url.slice(0, url.indexOf('?'));
+    }
+    return url;
 }

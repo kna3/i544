@@ -32,6 +32,7 @@ function setupRoutes(app) {
     app.get('/sensor-data/:sensorId/:timestamp', doGetSensorData(app));
     app.get(`/:sensorReq/:id`, doGetSensorTypeAndSensor(app));
     app.post('/:sensorReq', doCreate(app));
+    app.post('/:sensorReq/:sensorId', doCreate(app));
 
 }
 
@@ -109,6 +110,9 @@ function setupRoutes(app) {
                     await app.locals.model.addSensorType(body);
                 } else if (sensorReq === 'sensors') {
                     await app.locals.model.addSensor(body);
+                } else if (sensorReq.includes('sensor-data')){
+                    body.sensorId = req.params.sensorId;
+                    await app.locals.model.addSensorData(body);
                 }
                 res.status(CREATED);
                 res.send("Created");
@@ -166,13 +170,10 @@ function setupRoutes(app) {
                 }
                 res.json(results);
             } catch (err) {
-               // console.log(err);
                 res.status(NOT_FOUND);
-                /*let error = {
-                    message: "no data for timestamp " + req.params.timestamp,
-                    code: "NOT_FOUND"
-                };*/
-                res.json({code: err.code, message: err.message});
+               let errors = [];
+               errors.push({code: err.code, message: err.message})
+                res.json({errors: errors});
                 console.error(err);
             }
         });

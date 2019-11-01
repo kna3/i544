@@ -40,32 +40,27 @@ function setupRoutes(app) {
         return errorWrap(async function (req, res) {
             let results = {};
             let url = requestUrl(req);
+            let sensorReq;
             try {
                 if (req.params.id) {
-                    console.log(req.params);
-                    if (req.params.sensorReq !== undefined) {
-                        console.log("sensor-types");
-                        if(req.params.sensorReq === 'sensor-types') {
+                    sensorReq = req.params.sensorReq;
+                    if (sensorReq !== undefined) {
+                        if(sensorReq === 'sensor-types') {
                             results = await app.locals.model.findSensorTypes({id: req.params.id});
-                        } else if (req.params.sensorReq === 'sensors') {
-                            console.log("sensors");
+                        } else if (sensorReq === 'sensors') {
                             results = await app.locals.model.findSensors({id: req.params.id});
                         }
                     }
                     results.self = url;
+                    results.data[0].self = url;
                 } else {
-
-                    console.log(req.originalUrl);
-                    let sensorReq = '';
                     if (req.originalUrl.includes('?')) {
                          sensorReq = req.originalUrl.substring(1, req.originalUrl.indexOf('?'));
                     } else {
                         sensorReq = req.originalUrl.substring(1);
                     }
 
-                    console.log(sensorReq);
                     const q = req.query || {};
-                    console.log(q);
                     if (sensorReq === 'sensor-types') {
                         results = await app.locals.model.findSensorTypes(q);
                     } else if (sensorReq === 'sensors') {
@@ -85,13 +80,17 @@ function setupRoutes(app) {
                 }
                 res.json(results);
             } catch (err) {
-                console.log(err);
                 res.status(NOT_FOUND);
                 let id = req.params.id === undefined ? req.query.id :req.params.id;
-                let error = {message: "no results for sensor-type id \'" + id + "\'",
-                    code: "NOT_FOUND"};
-                res.json(error);
-                console.error(error);
+                sensorReq = sensorReq.toString().substring(0, sensorReq.toString().length - 1);
+                let message =  "no results for "+ sensorReq+ " id \'" + id + "\'";
+                let code =  "NOT_FOUND";
+
+                let errors = [];
+                errors.push({code: code, message: message})
+
+                res.json({errors: errors});
+                console.error(err);
             }
         });
     }
@@ -100,11 +99,8 @@ function setupRoutes(app) {
     function doCreate(app) {
         return errorWrap(async function (req, res) {
             const body = req.body;
-
-            console.log(body);
             let sensorReq = req.originalUrl;
             sensorReq = sensorReq.slice(1);
-            console.log(sensorReq);
             try {
                 if (sensorReq === 'sensor-types') {
                     await app.locals.model.addSensorType(body);
@@ -117,7 +113,7 @@ function setupRoutes(app) {
                 res.status(CREATED);
                 res.send("Created");
             } catch (err) {
-                console.log(err);
+                console.error(err);
             }
 
         });
@@ -146,7 +142,6 @@ function setupRoutes(app) {
                     results.self = url;
                 } else {
                     const q = req.query || {};
-                    console.log(q);
                     q.sensorId = req.params.sensorId;
                     results = await app.locals.model.findSensorData(q);
                     results.self = url;
@@ -202,23 +197,6 @@ const ERROR_MAP = {
     NOT_FOUND: NOT_FOUND
 }
 
-/** Map domain/internal errors into suitable HTTP errors.  Return'd
- *  object will have a "status" property corresponding to HTTP status
- *  code.
- */
-function mapError(err) {
-    console.error(err);
-    return err.isDomain
-        ? { status: (ERROR_MAP[err.errorCode] || BAD_REQUEST),
-            code: err.errorCode,
-            message: err.message
-        }
-        : { status: SERVER_ERROR,
-            code: 'INTERNAL',
-            message: err.toString()
-        };
-}
-
 /****************************** Utilities ******************************/
 
 /** Return original URL for req */
@@ -234,9 +212,7 @@ function getNextAndPreviousIndex(q, url, results) {
             filters[filter] = q[filter];
         }
     }
-    console.log(filters);
     if (filters) {
-        console.log("not empty");
         url = url.concat('?');
         for(let filter in filters) {
             url = url.concat(filter + '=' + filters[filter]);
@@ -244,13 +220,10 @@ function getNextAndPreviousIndex(q, url, results) {
     }
     let amp = false;
     if (Object.keys(filters).length > 0) {
-        console.log(amp);
         amp = true;
     }
-    console.log(url);
     if (results.nextIndex > 0) {
         results.next = url + (amp ? '&' : '') + '_index=' + results.nextIndex;
-        console.log(results.next);
         if (q._count > 0) {
             results.next += '&_count=' + q._count;
         }

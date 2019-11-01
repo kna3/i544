@@ -29,6 +29,7 @@ function setupRoutes(app) {
     app.use(bodyParser.json());
     app.get(`/:sensorReq`, doGetSensorTypeAndSensor(app));
     app.get(`/:sensorReq/:id`, doGetSensorTypeAndSensor(app));
+    app.post('/:sensorReq', doCreate(app));
 
 }
 
@@ -66,6 +67,8 @@ function setupRoutes(app) {
                         results = await app.locals.model.findSensorTypes(q);
                     } else if (sensorReq === 'sensors') {
                         results = await app.locals.model.findSensors(q);
+                    } else if (sensorReq === 'sensor-data') {
+                        results = await app.locals.model.findSensorData(q);
                     }
                     results.self = url;
                     let data = results.data;
@@ -90,6 +93,31 @@ function setupRoutes(app) {
                 console.error(error);
             }
         });
+    }
+
+
+    function doCreate(app) {
+        return errorWrap(async function (req, res) {
+            const body = req.body;
+
+            console.log(body);
+            let sensorReq = req.originalUrl;
+            sensorReq = sensorReq.slice(1);
+            console.log(sensorReq);
+            try {
+                if (sensorReq === 'sensor-types') {
+                    await app.locals.model.addSensorType(body);
+                } else if (sensorReq === 'sensors') {
+                    await app.locals.model.addSensor(body);
+                }
+                res.status(CREATED);
+                res.send("Created");
+            } catch (err) {
+                console.log(err);
+            }
+
+        });
+
     }
 
 

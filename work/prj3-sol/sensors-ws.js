@@ -27,36 +27,64 @@ function setupRoutes(app) {
     const base = app.locals.base;
     app.use(cors());
     app.use(bodyParser.json());
-    app.get(`/sensor-types`, doGetSensorType(app));
-    app.get(`/sensor-types/:id`, doGetSensorType(app));
+    app.get(`/:sensorReq`, doGetSensorTypeAndSensor(app));
+    app.get(`/:sensorReq/:id`, doGetSensorTypeAndSensor(app));
 
 }
 
-    function doGetSensorType(app) {
+    function doGetSensorTypeAndSensor(app) {
         return errorWrap(async function (req, res) {
             let results = {};
             let url = requestUrl(req);
             try {
                 if (req.params.id) {
-                    console.log(req.params.id);
-                    results = await app.locals.model.findSensorTypes({id: req.params.id});
+                    console.log(req.params);
+                    if (req.params.sensorReq !== undefined) {
+                        console.log("sensor-types")
+                        if(req.params.sensorReq === 'sensor-types') {
+                            results = await app.locals.model.findSensorTypes({id: req.params.id});
+                        } else if (req.params.sensorReq === 'sensors') {
+                            console.log("sensors");
+                            results = await app.locals.model.findSensors({id: req.params.id});
+                        }
+                    }
+                    results.self = url;
                 } else {
-                    const q = req.query || {};
 
-                    results = await app.locals.model.findSensorTypes(q);
+                    console.log(req.originalUrl);
+                    let sensorReq = '';
+                    if (req.originalUrl.includes('?')) {
+                         sensorReq = req.originalUrl.substring(1, req.originalUrl.indexOf('?'));
+                    } else {
+                        sensorReq = req.originalUrl.substring(1);
+                    }
+
+                    console.log(sensorReq);
+                    const q = req.query || {};
+                    console.log(q);
+                    if (sensorReq === 'sensor-types') {
+                        results = await app.locals.model.findSensorTypes(q);
+                    } else if (sensorReq === 'sensors') {
+                        results = await app.locals.model.findSensors(q);
+                    }
+                    results.self = url;
                     let data = results.data;
                     url = getBaseUrl(url);
-                    data.map((curr) => {
+                    data.map(async (curr) => {
                         curr.self = url + '/' + curr.id;
+                        if (q._doDetail) {
+                            curr.sensorType = await app.locals.model.findSensorTypes({id : curr.model});
+                        }
                     });
+
                     getNextAndPreviousIndex(q, url, results);
                 }
-                results.self = url;
                 res.json(results);
             } catch (err) {
+                console.log(err);
                 res.status(NOT_FOUND);
                 let id = req.params.id === undefined ? req.query.id :req.params.id;
-                let error = {message: "no results for sensor-type id '" + id + "'",
+                let error = {message: "no results for sensor-type id \'" + id + "\'",
                     code: "NOT_FOUND"};
                 res.json(error);
                 console.error(error);
@@ -113,14 +141,35 @@ function requestUrl(req) {
 }
 
 function getNextAndPreviousIndex(q, url, results) {
+    let filters = {};
+    for (let filter in q) {
+        if (filter !== "_count" && filter !== "_index") {
+            filters[filter] = q[filter];
+        }
+    }
+    console.log(filters);
+    if (filters) {
+        console.log("not empty");
+        url = url.concat('?');
+        for(let filter in filters) {
+            url = url.concat(filter + '=' + filters[filter]);
+        }
+    }
+    let amp = false;
+    if (Object.keys(filters).length > 0) {
+        console.log(amp);
+        amp = true;
+    }
+    console.log(url);
     if (results.nextIndex > 0) {
-        results.next = url + '?_index=' + results.nextIndex;
+        results.next = url + (amp ? '&' : '') + '_index=' + results.nextIndex;
+        console.log(results.next);
         if (q._count > 0) {
             results.next += '&_count=' + q._count;
         }
     }
     if (results.previousIndex > 0) {
-        results.previous = url + '?_index=' + results.previousIndex;
+        results.previous = url + (amp ? '&' : '') + '_index=' + results.previousIndex;
         if (q._count > 0) {
             results.previous += '&_count=' + q._count;
         }

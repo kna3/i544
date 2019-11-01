@@ -55,9 +55,11 @@ function setupRoutes(app) {
                 res.json(results);
             } catch (err) {
                 res.status(NOT_FOUND);
-                let id = req.params.id === undefined ? req.query.id :req.params.id
-                res.json({message: "no results for sensor-type id '" + id + "'",
-                    code: "NOT_FOUND"});
+                let id = req.params.id === undefined ? req.query.id :req.params.id;
+                let error = {message: "no results for sensor-type id '" + id + "'",
+                    code: "NOT_FOUND"};
+                res.json(error);
+                console.error(error);
             }
         });
     }

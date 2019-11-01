@@ -28,6 +28,8 @@ function setupRoutes(app) {
     app.use(cors());
     app.use(bodyParser.json());
     app.get(`/:sensorReq`, doGetSensorTypeAndSensor(app));
+    app.get('/sensor-data/:sensorId', doGetSensorData(app));
+    app.get('/sensor-data/:sensorId/:timestamp', doGetSensorData(app));
     app.get(`/:sensorReq/:id`, doGetSensorTypeAndSensor(app));
     app.post('/:sensorReq', doCreate(app));
 
@@ -41,7 +43,7 @@ function setupRoutes(app) {
                 if (req.params.id) {
                     console.log(req.params);
                     if (req.params.sensorReq !== undefined) {
-                        console.log("sensor-types")
+                        console.log("sensor-types");
                         if(req.params.sensorReq === 'sensor-types') {
                             results = await app.locals.model.findSensorTypes({id: req.params.id});
                         } else if (req.params.sensorReq === 'sensors') {
@@ -67,8 +69,6 @@ function setupRoutes(app) {
                         results = await app.locals.model.findSensorTypes(q);
                     } else if (sensorReq === 'sensors') {
                         results = await app.locals.model.findSensors(q);
-                    } else if (sensorReq === 'sensor-data') {
-                        results = await app.locals.model.findSensorData(q);
                     }
                     results.self = url;
                     let data = results.data;
@@ -118,6 +118,64 @@ function setupRoutes(app) {
 
         });
 
+    }
+
+    function doGetSensorData(app) {
+        return errorWrap(async function (req, res) {
+            try {
+                let results;
+                let errors = {};
+
+                let url = requestUrl(req);
+                if (req.params.sensorId && Object.keys(req.query).length === 0) {
+                    results = await app.locals.model.findSensorData({
+                        sensorId: req.params.sensorId,
+                        timestamp: req.params.timestamp
+                    });
+                    let data = results.data;
+                    if (req.params.timestamp) {
+                        let temp = [];
+                        temp.push(data[0]);
+                        results.data = temp;
+                        results.nextIndex = -1;
+                    }
+                    results.self = url;
+                } else {
+                    const q = req.query || {};
+                    console.log(q);
+                    q.sensorId = req.params.sensorId;
+                    results = await app.locals.model.findSensorData(q);
+                    results.self = url;
+                }
+                url = getBaseUrl(url);
+
+                results.data.map(async (curr) => {
+                    if (req.params.timestamp) {
+                        if (curr.timestamp == req.params.timestamp) {
+                            curr.self = url;
+                        } else {
+                            errors.code = "NOT_FOUND";
+                            errors.message = "no data for timestamp " + req.params.timestamp;
+                        }
+                    } else {
+                        curr.self = url + '/' + curr.timestamp;
+                    }
+                });
+                if (Object.keys(errors).length > 0) {
+                    throw errors;
+                }
+                res.json(results);
+            } catch (err) {
+               // console.log(err);
+                res.status(NOT_FOUND);
+                /*let error = {
+                    message: "no data for timestamp " + req.params.timestamp,
+                    code: "NOT_FOUND"
+                };*/
+                res.json({code: err.code, message: err.message});
+                console.error(err);
+            }
+        });
     }
 
 

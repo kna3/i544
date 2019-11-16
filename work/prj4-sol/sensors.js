@@ -31,10 +31,39 @@ module.exports = serve;
 
 
 function setupRoutes(app) {
-
+  const base = app.locals.base;
+  app.get(`${base}/sensor-types.html`, getSensorTypes(app));
 }
 
+function getSensorTypes(app) {
+    return async function(req, res) {
+        console.log("sensor-types");
+        const model = { base: app.locals.base, fields: {}};
+        const mustache = new Mustache();
+        const html = mustache.render('sensor-types', model);
+        res.send(html);
+    }
+}
+
+/************************ General Utilities ****************************/
+
+/** Decode an error thrown by web services into an errors hash
+ *  with a _ key.
+ */
+function wsErrors(err) {
+    const msg = (err.message) ? err.message : 'web service error';
+    console.error(msg);
+    return { _: [ msg ] };
+}
+  
+function doMustache(app, templateId, view) {
+    const templates = { footer: app.templates.footer };
+    return Mustache.render(app.templates[templateId], view, templates);
+}
+
+
 function setupTemplates(app) {
+    console.log("template");
     app.templates = {};
     for (let fname of fs.readdirSync(TEMPLATES_DIR)) {
         const m = fname.match(/^([\w\-]+)\.ms$/);

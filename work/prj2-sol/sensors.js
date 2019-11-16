@@ -1,4 +1,4 @@
-'use strict';
+use strict';
 
 const AppError = require('./app-error');
 const validate = require('./validate');
@@ -23,7 +23,7 @@ class Sensors {
     constructor(client, db) {
         this.client = client;
         this.db = db;
-        this.senorTypeCol = this.db.collection("sensorType");
+        this.sensorTypeCol = this.db.collection("sensorType");
         this.sensorCol = this.db.collection("sensor");
         this.sensorDataCol = this.db.collection("sensorData");
 
@@ -53,7 +53,7 @@ class Sensors {
      */
     async addSensorType(info) {
         const sensorType = validate('addSensorType', info);
-        await this.senorTypeCol.replaceOne({"id":sensorType.id},sensorType, {upsert: true});
+        await this.sensorTypeCol.replaceOne({"id":sensorType.id},sensorType, {upsert: true});
     }
 
     /** Subject to field validation as per validate('addSensor', info)
@@ -78,8 +78,33 @@ class Sensors {
      */
     async addSensorData(info) {
         const sensorData = validate('addSensorData', info);
-        await this.sensorDataCol.replaceOne({"id": sensorData.sensorId}, sensorData, {upsert: true});
-        //@TODO
+
+        let range = {};
+        let limits = {};
+        let status = '';
+        let sensor = await _getFindOneResult(this.sensorCol, {id: sensorData.sensorId});
+        if (sensor.length > 0) {
+            let sensorType = await _getFindOneResult(this.sensorTypeCol, {id: sensor[0].model});
+            if (sensorType.length > 0) {
+                range = sensor[0].expected;
+                limits = sensorType[0].limits;
+                status = inRange(sensorData.value, range, limits);
+                sensorData.status = status;
+            }
+        }
+
+        let dataToInsert = Object.assign({},sensorData);
+        delete dataToInsert.sensorId;
+
+        let sensorInfo = await this.sensorDataCol.find({_id: sensorData.sensorId}).toArray();
+        if (sensorInfo.length > 0) {
+            sensorInfo[0].data[sensorInfo[0].data.length] = sensorData;
+
+            await this.sensorDataCol.updateOne({"_id": sensorData.sensorId}, {$push : {"data": dataToInsert}}, {upsert: true});
+        } else {
+
+            await this.sensorDataCol.insertOne({_id: sensorData.sensorId, data: [dataToInsert]}, {upsert: true});
+        }
     }
 
     /** Subject to validation of search-parameters in info as per
@@ -109,16 +134,24 @@ class Sensors {
         const searchSpecs = validate('findSensorTypes', info);
 
         let result = {};
-
+        let queryResult = [];
         if (searchSpecs.id !== null) {
-           let queryResult = await _getFindOneResult(this.senorTypeCol, searchSpecs);
-            let data = [];
-            data.push(queryResult);
-            result.data = data;
+            queryResult = await _getFindOneResult(this.sensorTypeCol, searchSpecs);
+            if(queryResult.length === 0) {
+                const err = `unknown sensor-type id ${searchSpecs.id}`;
+                throw [new AppError('X_ID', err)];
+            }
+            result.data = queryResult;
             result.nextIndex = -1;
         } else {
-            result.data = await _getFindManyResults(this.senorTypeCol, searchSpecs);
+            queryResult = await _getFindManyResults(this.sensorTypeCol, searchSpecs);
+
+            result.data = queryResult;
         }
+        if(searchSpecs._index!==null && searchSpecs._count!==5)
+            result.nextIndex=searchSpecs._index+ searchSpecs._count;
+        else
+            result.nextIndex=-1;
         return result;
     }
 
@@ -156,9 +189,14 @@ class Sensors {
 
         if (searchSpecs.id !== null) {
             queryResult = await _getFindOneResult(this.sensorCol, searchSpecs);
+            if(queryResult.length === 0) {
+                const err = `unknown sensor-type id ${searchSpecs.id}`;
+                throw [new AppError('X_ID', err)];
+            }
             result.nextIndex = -1;
         } else {
             queryResult = await _getFindManyResults(this.sensorCol, searchSpecs);
+
         }
         if (searchSpecs._doDetail) {
             for (let i = 0; i < queryResult.length; i++) {
@@ -166,9 +204,12 @@ class Sensors {
                 queryResult[i].sensorType = await _getFindOneResult(this.senorTypeCol, {id: model});
             }
         }
-        let data = [];
-        data.push(queryResult);
-        result.data = data;
+
+        result.data = queryResult;
+        if(searchSpecs._index!==null )
+            result.nextIndex=searchSpecs._index+ searchSpecs._count;
+        else
+            result.nextIndex=-1;
         return result;
     }
 
@@ -210,9 +251,32 @@ class Sensors {
      *  All user errors must be thrown as an array of AppError's.
      */
     async findSensorData(info) {
-        //@TODO
         const searchSpecs = validate('findSensorData', info);
-        return { data: [], };
+        let queryResult = await this.sensorDataCol.find({_id: searchSpecs.sensorId}).toArray();
+        if(queryResult.length === 0) {
+            const err = `unknown sensor id ${searchSpecs.sensorId}`;
+            throw [new AppError('X_ID', err)];
+        }
+        let data = queryResult[0].data;
+        if (searchSpecs.timestamp != null) {
+            if (searchSpecs.timestamp > 0) {
+                data.sort(timeStampSort);
+                data = data.filter(sd => sd.timestamp <= searchSpecs.timestamp);
+            }
+        }
+        data = data.filter(sd => searchSpecs.statuses.has(sd.status));
+        let result = [];
+        let count = searchSpecs._count ? searchSpecs._count : 5;
+        for(let i = 0; i < count; i++) {
+            result.push(data[i]);
+        }
+
+        if(searchSpecs._doDetail === "true") {
+            let sen = await _getFindOneResult(this.sensorCol, {id: searchSpecs.sensorId});
+            let senType = await _getFindOneResult(this.sensorTypeCol, {id: sen[0].model});
+            return {data: result, sensorType: senType[0], sensor: sen[0]};
+        }
+        return {data: result};
     }
 
 
@@ -222,8 +286,8 @@ class Sensors {
 module.exports = Sensors.newSensors;
 
 async function _getFindOneResult(collection, searchSpecs) {
-    let queryResult = await collection.findOne({id: searchSpecs.id});
-    delete queryResult._id;
+    let queryResult = await collection.find({id: searchSpecs.id}).toArray();
+    delete queryResult[0]._id;
     return queryResult;
 }
 
@@ -236,7 +300,11 @@ async function _getFindManyResults(collection, searchSpecs) {
             filters[filter] = searchSpecs[filter];
         }
     }
-    let queryResult = await collection.find(filters).sort({"id":1}).skip(searchSpecs._index).limit(searchSpecs._count).toArray();
+
+    let queryResult = await collection.find(filters).sort({"id" : 1}).skip(searchSpecs._index ? searchSpecs._index: 0).limit(searchSpecs._count ?
+        searchSpecs._count: 5).toArray();
+    /*let queryResult = await collection.find(filters).sort(searchSpecs._sort ? searchSpecs._sort : {}).skip(searchSpecs._index ? searchSpecs._index: -1).limit(searchSpecs._count ?
+        searchSpecs._count: 5).toArray();*/
     queryResult.map((curr) => delete curr._id);
     return queryResult;
 }
@@ -247,7 +315,26 @@ const MONGO_OPTIONS = {
     useUnifiedTopology: true,
 };
 
+function inRange(value, range, limits) {
+    if (value <= limits.min || value >= limits.max) {
+        return "error";
+    }
+    if (value >= range.min && value <= range.max) {
+        return "ok";
+    } else {
+        return "outOfRange"
+    }
+}
 
-function inRange(value, range) {
-    return Number(range.min) <= value && value <= Number(range.max);
+function timeStampSort(a, b) {
+    const timestampA = a.timestamp;
+    const timestampB = b.timestamp;
+
+    let comparison = 0;
+    if (timestampA > timestampB) {
+        comparison = -1;
+    } else if (timestampA < timestampB) {
+        comparison = 1;
+    }
+    return comparison;
 }

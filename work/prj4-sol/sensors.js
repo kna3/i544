@@ -86,10 +86,18 @@ function getSensorTypes(app) {
         for (const widget of WIDGETS) {
             view.push(widgetView(widget, widget.val, widget.errors));
         }
-        let partials = {form: view, render: function () {
-                return mustache.render('widget', this);
-            }};
-        let html = mustache.render('sensor-types', partials);
+
+        let results = await app.locals.model.list('sensor-types', req.query);
+        console.log(results);
+
+        let model = {
+            form: view, 
+            render: function () {
+                        return mustache.render('widget', this);
+                    },
+            result: results.data
+        };
+        let html = mustache.render('sensor-types', model);
         res.send(html);
     }
 

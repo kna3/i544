@@ -7,8 +7,8 @@
 </head>
 <body>
     <div class="page">
-        <h1 class="tst-sensor-types-search-page">Search Sensor Types</h1>
-        <form method="GET"> 
+        <h1 class="tst-sensors-search-page">Search Sensor</h1>
+        <form method="GET">
         {{#error}}
             <p></p>
             <ul>
@@ -27,17 +27,14 @@
     {{#result}}
     <h2>Results Summary</h2>
     <table class="summary">
-        
         <thead>
             <tr>
-                <th>Manufacturer</th>
-                <th>Sensor Type ID</th>
-                <th>Model Number</th>
-                <th>Measure</th>
-                <th colspan="2">Limits</th>
+                <th>Sensor ID</th>
+                <th>Model</th>
+                <th>Period</th>
+                <th colspan="2">Expected Range</th>
             </tr>
             <tr>
-                <th></th>
                 <th></th>
                 <th></th>
                 <th></th>
@@ -48,20 +45,19 @@
         {{#result.data}}
             <tbody>
                 <tr>
-                    <td>{{manufacturer}}</td>
                     <td>{{id}}</td>
-                    <td>{{modelNumber}}</td>
-                    <td>{{quantity}}</td>
-                    {{#limits}}
+                    <td>{{model}}</td>
+                    <td>{{period}}</td>
+                    {{#expected}}
                         <td>{{min}}</td>
                         <td>{{max}}</td>
-                    {{/limits}}
+                    {{/expected}}
                 </tr>
             </tbody>
-        {{/result.data}}
-    </table>
-    {{/result}}
-    <div class="scroll">
+		{{/result.data}}
+	</table>
+	{{/result}}
+	 <div class="scroll">
         {{#prev}}
             <a class="tst-prev" href={{prev}} rel="prev"><<</a>
         {{/prev}}

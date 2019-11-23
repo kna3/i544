@@ -7,8 +7,13 @@
 </head>
 <body>
     <div class="page">
-        <h1 class="tst-sensors-search-page">Search Sensor</h1>
-        <form method="GET">
+        {{#search}}
+            <h1 class="tst-sensors-search-page">Search Sensors</h1>
+        {{/search}}
+        {{#add}}
+            <h1 class="tst-sensors-add-page">Create / Update Sensors </h1>
+        {{/add}}
+        <form method={{method}}>
         {{#error}}
             <p></p>
             <ul>
@@ -20,15 +25,21 @@
         {{/form}}
         <label for=" "></label>
         <div>
-            <input type="submit" value="search">
+            {{#add}}
+                <input type="submit" value="add">
+            {{/add}}
+            {{#search}}
+                <input type="submit" value="search">
+            {{/search}}
         </div>
         </form>
     </div>
     {{#result}}
     <h2>Results Summary</h2>
     <table class="summary">
+       
         <thead>
-            <tr>
+           <tr>
                 <th>Sensor ID</th>
                 <th>Model</th>
                 <th>Period</th>
@@ -44,7 +55,7 @@
         </thead>
         {{#result.data}}
             <tbody>
-                <tr>
+                    <tr>
                     <td>{{id}}</td>
                     <td>{{model}}</td>
                     <td>{{period}}</td>
@@ -54,10 +65,10 @@
                     {{/expected}}
                 </tr>
             </tbody>
-		{{/result.data}}
-	</table>
-	{{/result}}
-	 <div class="scroll">
+        {{/result.data}}
+    </table>
+    {{/result}}
+    <div class="scroll">
         {{#prev}}
             <a class="tst-prev" href={{prev}} rel="prev"><<</a>
         {{/prev}}

@@ -7,8 +7,13 @@
 </head>
 <body>
     <div class="page">
-        <h1 class="tst-sensor-types-search-page">Search Sensor Types</h1>
-        <form method="GET"> 
+        {{#search}}
+            <h1 class="tst-sensor-types-search-page">Search Sensor Types</h1>
+        {{/search}}
+        {{#add}}
+            <h1 class="tst-sensor-types-add-page">Create / Update Sensor Types </h1>
+        {{/add}}
+        <form method={{method}}> 
         {{#error}}
             <p></p>
             <ul>
@@ -20,7 +25,12 @@
         {{/form}}
         <label for=" "></label>
         <div>
-            <input type="submit" value="search">
+            {{#add}}
+                <input type="submit" value="add">
+            {{/add}}
+            {{#search}}
+                <input type="submit" value="search">
+            {{/search}}
         </div>
         </form>
     </div>

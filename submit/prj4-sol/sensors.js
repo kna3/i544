@@ -143,8 +143,6 @@ function getSensorTypes(app) {
     return async function (req, res) {
         const mustache = new Mustache();
         let model = {};
-        console.log(req.query);
-        console.log('getSensorType');
         let view = [];
         let widgets = [];
         let html;
@@ -172,7 +170,6 @@ function getSensorTypes(app) {
         model.render = function () {
             return mustache.render('widget', this);
         };
-        console.log(req.query);
         if (req.query.quantity) {
             req.query.quantity = quantityMap.get(req.query.quantity);
         }
@@ -197,16 +194,16 @@ function getSensorTypes(app) {
             }
                 if (!(Object.keys(errors).length > 0)) {
                     if (req.url.includes('/sensor-types.html')) {
-                        console.log('type');
+                        
                         results = await app.locals.model.list('sensor-types', req.query);
-                        console.log(results);
+                        
 
                     } else {
-                        console.log('sensor');
+                        
                         results = await app.locals.model.list('sensors', req.query);
                     }
                     if (results.data.length === 0) {
-                        console.log('here');
+                        
                         let err = {errors: [{message: 'No results found.'}]};
                         throw err;
                     }
@@ -215,7 +212,7 @@ function getSensorTypes(app) {
                     if (results.next) {
                         next = results.next.slice(results.next.indexOf('?'));
                     }
-                    //console.log(next);
+                    
                     let prev = "";
                     if (results.prev) {
                         prev = results.prev.slice(results.prev.indexOf('?'));
@@ -224,9 +221,6 @@ function getSensorTypes(app) {
                     model.next = next;
                     model.prev = prev;
                 } else {
-
-                    console.log("have Got errors");
-                    console.log(errors);
                     view = [];
                     widgets.map((curr) => curr.val = req.query[curr.name]);
                     for (const widget of widgets) {
@@ -246,7 +240,6 @@ function getSensorTypes(app) {
                     msg = 'No results found.'
                 }
                 model.error =  msg;
-                console.log(err);
             }
         
         model.method = 'GET';
@@ -262,8 +255,7 @@ function getSensorTypes(app) {
 
 function create(app) {
     return async function (req, res) {
-        console.log('create');
-        /*console.log(req.body);*/
+    
         const mustache = new Mustache();
         let view = [];
         let widgets = [];
@@ -275,21 +267,21 @@ function create(app) {
         let errors = {};
         let errorMap = new Map();
 
-        // if(!errors){
+        
         if (req.url.includes('/sensor-types/add.html')) {
             widgets.push(WIDGETS.get('id'));
             widgets.push(WIDGETS.get('modelNumber'));
             widgets.push(WIDGETS.get('manufacturer'));
             widgets.push(WIDGETS.get('quantity'));
             widgets.push(WIDGETS.get('limits'));
-            //console.log(req);
+            
         } else if (req.url.includes('/sensors/add.html')) {
             widgets.push(SensorWidget.get('id'));
             widgets.push(SensorWidget.get('model'));
             widgets.push(SensorWidget.get('period'));
             widgets.push(SensorWidget.get('expected'));
         }
-        //}
+
         widgets.map((curr) => {curr.val = {value: req.query[curr.name]};
             curr.isRequired =true;
         });
@@ -302,7 +294,6 @@ function create(app) {
         model.render = function () {
             return mustache.render('widget', this);
         };
-        console.log(req.body);
         if (Object.keys(req.body).length > 0) {
             try {
                 if (req.url.includes('/sensor-types/add.html')) {
@@ -311,8 +302,7 @@ function create(app) {
                         req.body.unit = unitMap.get(req.body.quantity);
                     }
                 }
-                console.log(req.method + " is the method");
-                //console.log(req.body);
+               
                 if (req.method === 'POST') {
                     if (req.url.includes('/sensor-types/add.html')) {
                         errors = validate(params, sensorTypeReqFields, req.url);
@@ -325,7 +315,7 @@ function create(app) {
                             errorMap.set(error, {error: errors[error]});
                         }
                     }
-                    console.log(errors);
+                   
                     if (!(Object.keys(errors).length > 0)) {
                         if (req.url.includes('/sensor-types/add.html')) {
                             let response = await app.locals.model.update('sensor-types', req.body);
@@ -335,27 +325,20 @@ function create(app) {
                         }
                         if (req.url.includes('/sensors/add.html')) {
                             let response = await app.locals.model.update('sensors', req.body);
-                            console.log(response);
                             if (response === 'Created') {
                                 res.redirect(app.locals.base + '/sensors.html?id=' + req.body.id);
                             }
                         }
                     } else {
-                        console.log("have errors");
                         view = [];
-                        console.log(req.body);
                         if (req.body.quantity) {
                             req.body.quantity = quantityMap.get(req.body.quantity);
                         }
                         widgets.map((curr) => curr.val = req.body[curr.name]);
-
-                        console.log(widgets);
                         for (const widget of widgets) {
-                            console.log(errorMap.get(widget.name));
                             let obj = {};
                             obj.value = widget.val;
                             obj.error = errorMap.get(widget.name);
-                            console.log(obj);
                             view.push(widgetView(widget, obj));
                         }
                         model.form = view;
@@ -375,7 +358,6 @@ function create(app) {
                     msg = 'No results found.'
                 }
                 model.error =  msg;
-                console.log(err);
             }
         }
 
@@ -440,16 +422,11 @@ function validate(values, requires=[],url) {
             const value = values[name];
             if(typeof value  === "string"){
                 if (fieldInfo.regex && value.length > 0 && !(String(value)).match(fieldInfo.regex)) {
-                    console.log('error field');
-                    console.log(value);
                     errors[name] = fieldInfo.errors;
-                    console.log(errors[name]);
                 }
             }else if(typeof value === "object"){
                 const expMin = value.min;
                 const expMax = value.max;
-                console.log(expMin);
-                console.log(expMax);
                 const periodVal1 = parseInt(expMin, 10);
                 const periodVal2 = parseInt(expMax, 10);
                 const check1 = String(periodVal1);
@@ -506,12 +483,9 @@ function validate(values, requires=[],url) {
 function getNonEmptyValues(values,url) {
     const out = {};
     Object.keys(values).forEach(function(k) {
-        //console.log(k + 'is k');
         if (url.includes('/sensor-types.html') || url.includes('/sensor-types/add.html')) {
             if (WIDGETS.get(k) !== undefined) {
-                //console.log(WIDGETS.get(k));
                 const v = values[k];
-                //console.log(v);
                 if (typeof v === 'object') {
                     if (v.min && v.min.trim().length > 0 && v.max && v.max.trim().length > 0) {
                         out[k] = v;
@@ -520,10 +494,7 @@ function getNonEmptyValues(values,url) {
             }
         }
         else {
-            console.log(k);
-
             if (SensorWidget.get(k) !== undefined) {
-                console.log('hao');
                 const v = values[k];
                 if (typeof v === 'object') {
                     if (v.min && v.min.trim().length > 0 && v.max && v.max.trim().length > 0) {

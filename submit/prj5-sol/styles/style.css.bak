@@ -1,0 +1,38 @@
+h1 {
+  font-style: italic;
+  color: gray;
+}
+
+footer li {
+  list-style: none;
+  display: inline;
+}
+footer li + li::before {
+  content: " | ";
+}
+
+dl {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  padding: 10px;
+}
+dt {
+  font-weight: bold;
+}
+dt, dd {
+  padding: 5px 2px;
+}
+dt::after {
+  content: ': ';   
+}
+
+
+.result {
+  padding: 5px;
+}
+
+.error {
+  color: red;
+  display: block;
+  padding: 0 0 10px 10px;
+}
